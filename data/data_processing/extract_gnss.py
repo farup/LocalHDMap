@@ -19,7 +19,12 @@ root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
 import utils
 
 
-def read_gnss52(path):
+def read_gnss(path):
+    """
+    Read gnss file 
+
+    Returns: 
+    """
     with open(path, "rb") as f:
         GPGGA_lines = []
         position = dict()
@@ -30,8 +35,15 @@ def read_gnss52(path):
 
 
 def nmea_to_decimal(coord):
-    """
-    Convert MNEA latidue and and longitude to decimal degrees
+    """ Convert MNEA latidue and and longitude to decimal degrees
+    Args
+        Coords: 
+            Latitude is represented as ddmm.mmmm
+            longitude is represented as dddmm.mmmm
+            - dd or ddd is degrees
+            - mm.mmmm is minutes and decimal fractions of minutes
+    Returns:
+        float: degrees in decimal 
     """
     degrees = int(coord[:2])  # First 2 digits are degrees
     minutes = float(coord[2:])  # Rest is minutes
@@ -39,9 +51,15 @@ def nmea_to_decimal(coord):
     return decimal_degrees
 
 def get_gnss_data(gnss_file):
-    """
-    Extract latitude and longitude in decimal degrees. 
-    Extract timestamps
+    """ Extract latitude, longitude (in decimal degrees), and gnss timestamps
+
+    Args:
+        gnss_file: file path to gnss data 
+
+    Returns:
+        list: list of tuples with lat and lon , 
+        list: list of timestamps
+
     
     """
     with open(gnss_file, "rb") as f:
@@ -77,9 +95,13 @@ def get_gnss_data(gnss_file):
 
 
 def find_best_sync_new(timestamp1, timestamp2):
-    """ 
-    Loop through different start and end timestamps
-    Checks both directions
+    """  Loop through different start and end positions for timestamps for finding best average sync
+        Assume one timestamp1 is 10hz (gnss) and timestamp3 30hz (camera)
+    
+    Args:
+        timestamp1: list of timestamps 
+        timestamp2: list of timestamps
+
     
     """
 
@@ -155,9 +177,13 @@ def find_best_sync(gnss, cam):
 
 
 def average_frequency(timestamps): 
+    """ Find average frequency in timestamps
+    
+    """
 
     freq = np.mean(np.abs(np.array(timestamps[:-1]).astype(int) - np.array(timestamps[1:]).astype(int)))
-    print(f"Average freq: {freq} ms, in seconds {freq / 1e6}")
+    print(f"Average time diff: {freq} ms, in seconds {freq / 1e6}")
+    print(f"Average freq: {1 / (freq / 1e6)} Hz")
 
 
 def calculate_sync_dif(timestamps1, timestamps2):
@@ -259,11 +285,12 @@ if __name__ == "__main__":
     absoulute_files = utils.get_folder(folder_name="Trip077")
     camera_files = utils.get_files(absoulute_files, file_format="h264")  
     timestamps_files = utils.get_files(absoulute_files, file_format="timestamps")
+    
     count, timestamps_cam = utils.get_timestamps(timestamps_files[0])
 
     gnss_file = utils.get_gnss_file(absoulute_files, gnss_type="gnss52")
 
-    GPGGA_lines = read_gnss52(gnss_file)
+    GPGGA_lines = read_gnss(gnss_file)
 
     lat_lon, timestamps_gnss = get_gnss_data(gnss_file)
 
@@ -275,14 +302,12 @@ if __name__ == "__main__":
     # GNSS end number: -28, Cam start number: 82
     # Average time (in seconds) between timestamps: 0.015527154475982533
 
-    plot_route(lat_lon)
+    #plot_route(lat_lon)
 
 
     ego_xy_coords = get_ego_position(lat_lon)
-    
-    ego_yaws = compute_yaws(lat_lon)
-    
 
+    ego_yaws = compute_yaws(lat_lon)
 
     print("Done")
 
