@@ -1,0 +1,90 @@
+import numpy as np 
+import cv2 
+import json
+import os
+
+
+#image_path_nor = "/cluster/home/terjenf/MapTR/NAP_data/nuscenes/samples/C1_front60Single/frame_0782.png"
+trip_path = "/cluster/home/terjenf/MapTR/NAP_raw_data/Trip077/"
+root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
+#camera_json = "/cluster/home/terjenf/MapTR/NAP_raw_data/Trip077/camerasandCanandGnssCalibratedAll_lidars00-virtual.json"
+
+
+
+
+def sort_func(e): 
+    return e.split("/")[-1]
+
+def get_folders(path=root_folder):
+    folder = [os.path.join(path,f) for f in os.listdir(path)]
+    return folder
+
+
+def get_folder(folder_name="Trip077"): 
+    if not os.path.exists(folder := os.path.join(root_folder, folder_name)): 
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fodler)
+    
+    absoulute_files = [os.path.join(root_folder,folder_name,  sub_folder) for sub_folder in os.listdir(folder)]
+    print(absoulute_files)
+    absoulute_files.sort(key=sort_func)
+
+    return absoulute_files
+
+def get_files(absoulute_files, file_format):
+
+    files = []
+    for file in absoulute_files:
+        if file.split('.')[-1] == file_format: 
+            files.append(file)
+
+    return files
+
+
+def get_gnss_file(absoulute_files, gnss_type="gnss52"):
+    bin_files = get_files(absoulute_files, file_format="bin")
+
+    for bin_file in bin_files: 
+        if gnss_type in bin_file: 
+            return bin_file
+
+def get_timestamps(file_with_stamps): 
+    count = 0
+    time_stamps_cam = []
+    with open(file_with_stamps, 'r') as file: 
+        for timestamp in file: 
+            # print(timestamp)
+            # break
+            time_stamps_cam.append(timestamp.split("\t")[-1].strip())
+            count += 1
+        print(f"Counted {count} timestamps in file {file_with_stamps}")
+    return count, time_stamps_cam
+
+
+def read_gnss52(path):
+    with open(path, "rb") as f:
+        list_lines = []
+        position = dict()
+        for line in f.readlines():
+            if line.startswith(b"$GPGGA"):
+                list_lines.append(line)
+    return list_lines
+
+
+
+if __name__ == "__main__": 
+
+    absoulute_files = get_folder(folder_name="Trip077")
+
+    camera_files = get_files(absoulute_files, file_format="h264")
+    
+    timestamps_files = get_files(absoulute_files, file_format="timestamps")
+
+    count, time_stamps_cam = get_timestamps(timestamps_files[0])
+
+    gnss52_file = get_gnss_file(absoulute_files, gnss_type="gnss52")
+
+
+    print(absoulute_files)
+
+
+
