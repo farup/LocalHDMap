@@ -9,14 +9,18 @@ import matplotlib.pyplot as plt
 import contextily as ctx
 from shapely.geometry import Point
 
+import sys 
+
 
 #image_path_nor = "/cluster/home/terjenf/MapTR/NAP_data/nuscenes/samples/C1_front60Single/frame_0782.png"
 trip_path = "/cluster/home/terjenf/MapTR/NAP_raw_data/Trip077/"
 root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
 #camera_json = "/cluster/home/terjenf/MapTR/NAP_raw_data/Trip077/camerasandCanandGnssCalibratedAll_lidars00-virtual.json"
 
+sys.path.append("/cluster/home/terjenf/NAPLab_car")
 
-import utils
+from data.data_processing import utils
+
 
 
 def read_gnss(path):
@@ -114,8 +118,8 @@ def find_best_sync_new(timestamp1, timestamp2):
             seconds = calculate_sync_dif(timestamp1, timestamp2[::3])
             if seconds < dict_best['s']['best_score']:
                 dict_best['s']['best_score'] = seconds 
-                dict_best['s']['timestamp1'] = 0
-                dict_best['s']['timestamp2'] = 0
+                dict_best['s']['timestamp1_end'] = 0
+                dict_best['s']['timestamp2_start'] = 0
 
             timestamp2_start =  3*(i+1)
             timestamp1_end = -1
@@ -124,7 +128,7 @@ def find_best_sync_new(timestamp1, timestamp2):
             timestamp2_start =  3*(i+1) + 1
             timestamp1_end = -i-2
 
-        print(f"\nArgument1 end number: {timestamp1_end}, Argument2 start number: {timestamp2_start}")
+        #print(f"\nArgument1 end number: {timestamp1_end}, Argument2 start number: {timestamp2_start}")
 
         for direction in ['s', 'r']:
             if direction == 's':
@@ -141,39 +145,9 @@ def find_best_sync_new(timestamp1, timestamp2):
                     dict_best['r']['timestamp2_end'] = -timestamp2_start
                     dict_best['r']['timestamp1_start'] = timestamp1_end*-1
 
+        print(f"---------- Best result current run {dict_best} ------------")
     return dict_best
 
-
-
-def find_best_sync(gnss, cam):
-    """ Loop through different start and end timestamps"""
-
-    dict_best = {'best_score': 1000000000}
-
-
-    for i in range(200):
-        if i == 0:
-            print("Start")
-            seconds = calculate_sync_dif(gnss, cam[::3])
-            if seconds < dict_best['best_score']:
-                dict_best['best_score'] = seconds 
-                dict_best['cam_start'] = 0
-                dict_best['gnss_end'] = 0
-
-            cam_split =  3*(i+1)
-            gnss_split = -1
-
-        else:
-            cam_split =  3*(i+1) + 1
-            gnss_split = -i-2
-
-        print(f"\nGNSS end number: {gnss_split}, Cam start number: {cam_split}")
-        seconds = calculate_sync_dif(gnss[:gnss_split], cam[cam_split::3])
-        if seconds < dict_best['best_score']:
-            dict_best['best_score'] = seconds 
-            dict_best['cam_start'] = cam_split
-            dict_best['gnns_end'] = gnss_split
-    return dict_best
 
 
 def average_frequency(timestamps): 
@@ -196,6 +170,39 @@ def calculate_sync_dif(timestamps1, timestamps2):
     seconds = (np.mean(np.abs(np_timestamps1 - np_timestamps2))) / 1e6
     print(f"Average time (in seconds) between timestamps: {seconds}")
     return seconds
+
+
+def camera_timestamps(timestamps_files):
+    cam_names = [cam.split("/")[-1].split(".")[0] for cam in camera_files]
+    cams = {}
+    for timestamps_file, cam_name in zip(timestamps_files, cam_names):
+        count, timestamps_cam = utils.get_timestamps(timestamps_file)
+        if  count < lowest_count: 
+            lowest_count = count
+        cams[cam_name] = {'count': count, 'timestamps_cam': timestamps_cam}
+    
+    return cams
+
+
+def calculate_syncs_diffs(cams, timestamps_gnss):
+    """
+    
+    """
+ 
+    bests = {}
+    lowest_count = 100000000000000
+
+    for k,v in cams.items():
+        if  v['count'] > lowest_count:
+            v['timestamps_cam'] = v['timestamps_cam'][(v['count'] - lowest_count):]
+            v['count'] = lowest_count
+            print(f"Adjusted {k} timestaps. Removed {(v['count'] - lowest_count)} frames from the start!!")
+
+    for k,v in cams.items():
+        best = find_best_sync_new(timestamps_gnss, v['timestamps_cam'])
+        bests[k] = best
+    
+    return bests
 
 
 def get_ego_position(lat_lon):
@@ -292,6 +299,8 @@ if __name__ == "__main__":
 
     GPGGA_lines = read_gnss(gnss_file)
 
+    gnss_file = utils.get_gnss_file(absoulute_files, gnss_type="gnss52")
+
     lat_lon, timestamps_gnss = get_gnss_data(gnss_file)
 
     average_frequency(timestamps_gnss)
@@ -303,11 +312,9 @@ if __name__ == "__main__":
     # Average time (in seconds) between timestamps: 0.015527154475982533
 
     #plot_route(lat_lon)
-
-
     ego_xy_coords = get_ego_position(lat_lon)
-
     ego_yaws = compute_yaws(lat_lon)
+
 
     print("Done")
 

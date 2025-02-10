@@ -3,10 +3,17 @@ import json
 import uuid
 from dataclasses import dataclass
 
-from nuscenes.nuscenes import NuScenes
+#from nuscenes.nuscenes import NuScenes
+
+import utils
+import extract_gnss
 
 def generate_token():
     return str(uuid.uuid4())
+
+
+
+
 
 
 class Scene: 
@@ -80,11 +87,38 @@ class Log:
         self.location = location
 
 
+
+def create_samples(timestamps_gnss, timestamps_cam, cam):
+    """
+    
+    
+    """
+
+
+
+
 if __name__ == "__main__": 
 
     print("hei")
 
+    absoulute_files = utils.get_folder(folder_name="Trip077")
+    camera_files = utils.get_files(absoulute_files, file_format="h264")  
+    timestamps_files = utils.get_files(absoulute_files, file_format="timestamps")
+
+    gnss_file = utils.get_gnss_file(absoulute_files, gnss_type="gnss52")
+
+    cams = extract_gnss.camera_timestamps(timestamps_files)
+
+    lat_lon, timestamps_gnss = extract_gnss.get_gnss_data(gnss_file)
+
+    bests = extract_gnss.calculate_syncs_diffs(cams, timestamps_gnss)
+
+    print(bests)
+    ego_xy_coords = extract_gnss.get_ego_position(lat_lon)
+    ego_yaws = extract_gnss.compute_yaws(lat_lon)
+
     scene = Scene(scene_name="trip_077", description="Handels -> Eglseterbru -> Nidarosdomen -> Samfundet -> Høyskoleringen")
+
     sample = Sample(scene_token=scene.token, timestamp=23242535)
 
-    print("TErje ")
+    print("Terje")
