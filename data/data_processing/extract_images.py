@@ -19,7 +19,8 @@ root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
 save_img_rooth = "/cluster/home/terjenf/NAPLab_car/data_images"
 folder_name ="Trip077"
 
-image__frame_span = (12672, 15972)
+#image__frame_span = (12672, 15972)
+image__frame_span = (12672, 12972)
 #camera_json = "/cluster/home/terjenf/MapTR/NAP_raw_data/Trip077/camerasandCanandGnssCalibratedAll_lidars00-virtual.json"
 
 import utils
@@ -50,12 +51,20 @@ def extract_images(folder_name, camera_files, timestamp_files):
     if len(cam_folder_paths) < 1:
         cam_folder_paths = [os.path.join(save_img_rooth,folder_name, cam_name) for cam_name in cam_names]
 
-
     for camera_file, timestamp_file, cam_folder_path, cam in zip(camera_files, timestamp_files, cam_folder_paths, cam_names): 
 
         count, time_stamps_cam = utils.get_timestamps(timestamp_file)
 
         save_images_from_camera(cam, cam_folder_path,camera_file, time_stamps_cam )
+
+def camera_timestamps(timestamps_files, camera_files):
+    cam_names = [cam.split("/")[-1].split(".")[0] for cam in camera_files]
+    cams = {}
+    for timestamps_file, cam_name in zip(timestamps_files, cam_names):
+        count, timestamps_cam = utils.get_timestamps(timestamps_file)
+        cams[cam_name] = {'count': count, 'timestamps_cam': timestamps_cam}
+    
+    return cams
      
 def save_images_from_camera(cam, cam_folder_path, camera_file, time_stamps_cam):
 
@@ -79,14 +88,21 @@ def save_images_from_camera(cam, cam_folder_path, camera_file, time_stamps_cam):
         frame_count = 0
         while True:
 
-            if  not (image__frame_span[0] < frame_count < image__frame_span[1]):
-                continue
-            # Read each frame
             ret, frame = cam_cap.read()
             if not ret:
                 break
+            
+            if not (image__frame_span[0] < frame_count):
+                frame_count += 1
+                continue
+
+            if frame_count > image__frame_span[1]:
+                break
+
+
             # Save the frame as an image file
             frame_filename = os.path.join(cam_folder_path, f"frame_{frame_count:04d}_{cam}_{time_stamps_cam[frame_count]}.png")
+            frame_count += 1
 
             if os.path.exists(frame_filename): 
                 continue
@@ -94,9 +110,13 @@ def save_images_from_camera(cam, cam_folder_path, camera_file, time_stamps_cam):
             cv2.imwrite(frame_filename, frame)
             print(f"Saved: {frame_filename}")
 
-            frame_count += 1
+            
+
+            # if frame_count >= 550:
+            #     break
         # Release resources
         cam_cap.release()
+
         print(f"Extracted {frame_count} frames to {cam_folder_path}")
 
 

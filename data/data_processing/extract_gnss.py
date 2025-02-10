@@ -112,7 +112,7 @@ def find_best_sync_new(timestamp1, timestamp2):
     dict_best = {'s': {'best_score': 1000000000}, 
                 'r': {'best_score': 1000000000}}
 
-    for i in range(200):
+    for i in range(100):
         if i == 0:
             print("Start")
             seconds = calculate_sync_dif(timestamp1, timestamp2[::3])
@@ -128,24 +128,26 @@ def find_best_sync_new(timestamp1, timestamp2):
             timestamp2_start =  3*(i+1) + 1
             timestamp1_end = -i-2
 
-        #print(f"\nArgument1 end number: {timestamp1_end}, Argument2 start number: {timestamp2_start}")
+        print(f"\nArgument1 end number: {timestamp1_end}, Argument2 start number: {timestamp2_start}")
 
         for direction in ['s', 'r']:
             if direction == 's':
+                print(" Normal (s) direction:\n")
                 seconds = calculate_sync_dif(timestamp1[:timestamp1_end], timestamp2[timestamp2_start::3])
                 if seconds < dict_best['s']['best_score']:
                     dict_best['s']['best_score'] = seconds 
                     dict_best['s']['timestamp2_start'] = timestamp2_start
                     dict_best['s']['timestamp1_end'] = timestamp1_end
                     
-            else: 
+            else:
+                print(" Reversed (r) direction:\n")
                 seconds = calculate_sync_dif(timestamp1[timestamp1_end*-1:], timestamp2[:-timestamp2_start:3])
                 if seconds < dict_best['r']['best_score']:
                     dict_best['r']['best_score'] = seconds 
                     dict_best['r']['timestamp2_end'] = -timestamp2_start
                     dict_best['r']['timestamp1_start'] = timestamp1_end*-1
 
-        print(f"---------- Best result current run {dict_best} ------------")
+    print(f"---------- Best result current run {dict_best} ------------")
     return dict_best
 
 
@@ -172,25 +174,13 @@ def calculate_sync_dif(timestamps1, timestamps2):
     return seconds
 
 
-def camera_timestamps(timestamps_files):
-    cam_names = [cam.split("/")[-1].split(".")[0] for cam in camera_files]
-    cams = {}
-    for timestamps_file, cam_name in zip(timestamps_files, cam_names):
-        count, timestamps_cam = utils.get_timestamps(timestamps_file)
-        if  count < lowest_count: 
-            lowest_count = count
-        cams[cam_name] = {'count': count, 'timestamps_cam': timestamps_cam}
-    
-    return cams
-
-
 def calculate_syncs_diffs(cams, timestamps_gnss):
     """
     
     """
  
     bests = {}
-    lowest_count = 100000000000000
+    lowest_count = np.min([v['count'] for k,v in cams.items()])
 
     for k,v in cams.items():
         if  v['count'] > lowest_count:
@@ -199,6 +189,7 @@ def calculate_syncs_diffs(cams, timestamps_gnss):
             print(f"Adjusted {k} timestaps. Removed {(v['count'] - lowest_count)} frames from the start!!")
 
     for k,v in cams.items():
+        print(f"---------------------Checking for cam {k}--------------------------")
         best = find_best_sync_new(timestamps_gnss, v['timestamps_cam'])
         bests[k] = best
     

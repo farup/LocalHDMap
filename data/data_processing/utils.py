@@ -2,7 +2,7 @@ import numpy as np
 import cv2 
 import json
 import os
-
+from pyquaternion import Quaternion
 
 #image_path_nor = "/cluster/home/terjenf/MapTR/NAP_data/nuscenes/samples/C1_front60Single/frame_0782.png"
 trip_path = "/cluster/home/terjenf/MapTR/NAP_raw_data/Trip077/"
@@ -10,6 +10,30 @@ root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
 #camera_json = "/cluster/home/terjenf/MapTR/NAP_raw_data/Trip077/camerasandCanandGnssCalibratedAll_lidars00-virtual.json"
 
 
+
+def euler_to_quaternion_yaw(r):
+    roll, pitch, yaw = r
+    qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+    qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+    qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+    qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+    return [qw, qx, qy, qz] 
+
+
+def euler_to_quaternion_pyquaternion(roll, pitch, yaw):
+  
+    # Create quaternion from Euler angles
+    q = Quaternion(axis=[1, 0, 0], angle=roll) * \
+        Quaternion(axis=[0, 1, 0], angle=pitch) * \
+        Quaternion(axis=[0, 0, 1], angle=yaw) 
+
+    return q
+
+
+def load_json_file(file_path ):
+    with open(file_path, 'r') as f: 
+        json_obj = json.load(f)
+        return json_obj
 
 
 def sort_func(e): 
