@@ -3,3 +3,5 @@
 *.slurm
 
 *.png
+*.pkl
+*.json

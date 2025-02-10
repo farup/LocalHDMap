@@ -2,6 +2,7 @@ import numpy as np
 import cv2 
 import json
 import os
+import pickle
 from pyquaternion import Quaternion
 
 #image_path_nor = "/cluster/home/terjenf/MapTR/NAP_data/nuscenes/samples/C1_front60Single/frame_0782.png"
@@ -17,7 +18,7 @@ def euler_to_quaternion_yaw(r):
     qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
     qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
     qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
-    return [qw, qx, qy, qz] 
+    return [float(qw), float(qx), float(qy), float(qz)] 
 
 
 def euler_to_quaternion_pyquaternion(roll, pitch, yaw):
@@ -29,6 +30,31 @@ def euler_to_quaternion_pyquaternion(roll, pitch, yaw):
 
     return q
 
+
+def save_to_picle_file(obj, path, pkl_name):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    new_file = str(os.path.join(path, pkl_name))
+    with open(new_file, 'wb') as f: 
+        pickle.dump(obj, f)
+        print("Saved pkl to", new_file)
+
+
+def load_from_picle_file(path):
+    with open(path, "rb") as f:
+        obj_pkl = pickle.load(f)
+    return obj_pkl
+
+
+def save_to_json_file(obj, path, json_name): 
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    new_file = str(os.path.join(path, json_name))
+    with open(new_file, 'w') as f: 
+        json.dump(obj, f)
+        print("Saved json to", new_file)
 
 def load_json_file(file_path ):
     with open(file_path, 'r') as f: 

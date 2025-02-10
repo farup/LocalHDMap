@@ -1,7 +1,7 @@
 
 import json 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 #from nuscenes.nuscenes import NuScenes
 
@@ -13,6 +13,7 @@ import os
 import numpy as np
 
 nuscenes_cam_json = "/cluster/home/terjenf/NAPLab_car/data_nuscnes/nuscene_metadata.json"
+naplab_tables_path = "/cluster/home/terjenf/NAPLab_car/data_tables"
 
 intrinsics_map = {
         'C1_front60Single': 'CAM_FRONT',
@@ -27,51 +28,43 @@ intrinsics_map = {
 def generate_token():
     return str(uuid.uuid4())
 
-
+@dataclass
 class Scene: 
-    def __init__(self, scene_name, description, data_root):
-        self.token = generate_token() 
-        self.scene_name = scene_name
-        self.description = description
-        self.data_root = data_root
-      
+    scene_name: str
+    description: str
+    data_root: str 
+    token: str = field(init=False)  # Excluded from __init__, set later
+
+
+    def __post_init__(self):
+        self.token = generate_token()  # Generate token after initialization
+
+@dataclass      
 class Sample: 
-    def __init__(self, scene_token, timestamp, next_idx=None, prev_idx=None): 
-        self.token = generate_token()
-        self.scene_token = scene_token
-        self.timestamp = timestamp
-  
-        self.next = next_idx
-        self.prev = prev_idx
+    scene_token: str
+    timestamp: int
+    data: any = field(default=None) # default to None, can be set later
+    next_idx: any = field(default=None)
+    prev_idx: any = field(default=None)
+    
+    def __post_init__(self):
+        self.token = generate_token()  # Generate token after initialization
 
-    def set_next(self, next_idx): 
-        self.next = next_idx
-
-    def set_prev(self, prev_idx): 
-        self.prev = prev_idx
-
-    def set_data(self, data): 
-        self.data = data
-
+@dataclass 
 class SampleData: 
-    def __init__(self, sample_token, timestamp, calibrated_sensor_token, ego_pose_token=None, filename=None, next_idx=None, prev_idx=None): 
-        self.token = generate_token()
-        self.sample_token = sample_token
-        self.timestamp = timestamp
-        self.calibrated_sensor_token = calibrated_sensor_token
+    sample_token: int
+    ego_pose_token: int
+    timestamp: int
+    calibrated_sensor_token: int
+    filename: str
+    next_idx: str
+    prev_idx: str
 
-        self.filename = filename
-
-        self.next = next_idx
-        self.prev = prev_idx
-
-    def set_next(self, next_idx): 
-        self.next = next_idx
-
-    def set_prev(self, prev_idx): 
-        self.prev = prev_idx
+    def __post_init__(self):
+        self.token = generate_token()  # Generate token after initialization
 
 
+@dataclass
 class CalibratedSensor:
     """
     [copy from nuscenes]
@@ -80,40 +73,42 @@ class CalibratedSensor:
     All camera images come undistorted and rectified.
     
     """
-    def __init__(self, translation, rotation, camera_intrinsics, sensor_token=None):
-        self.token = generate_token()
-        self.sensor_token = sensor_token
-        self.translation = translation 
-        self.rotation = rotation 
-        self.camera_intrinsics = camera_intrinsics
+    translation: list
+    rotation: list
+    camera_intrinsics: list
 
+    def __post_init__(self):
+        self.token = generate_token()  # Generate token after initialization
 
+@dataclass
 class EgoPose: 
 
     """"
     Ego vehicle pose at a particular timestamp. Given with respect to global coordinate system of the log's map. 
     The localization is 2-dimensional in the x-y plane.
     """
-    def __init__(self, translation, rotation, timestamp):
-        self.token = generate_token()
-        self.translation = translation 
-        self.rotation = rotation 
-        self.timestamp = timestamp
+    translation: list 
+    rotation: list
+    timestamp: int
+
+    def __post_init__(self):
+        self.token = generate_token()  # Generate token after initialization
 
 
-class Log: 
-    def __init__(self, vehicle_name, date_caputred, location):
-        self.token = generate_token()
-        self.vehicle_name = vechile_name
-        self.date_captured = date_caputred
-        self.location = location
+  
+# class Log: 
+#     def __init__(self, vehicle_name, date_caputred, location):
+#         self.token = generate_token()
+#         self.vehicle_name = vechile_name
+#         self.date_captured = date_caputred
+#         self.location = location
 
 
-class Sensor: 
-    def __init__(self, channel, modility):
-        self.token = generate_token()
-        self.channel = channel
-        self.modality = channel
+# class Sensor: 
+#     def __init__(self, channel, modility):
+#         self.token = generate_token()
+#         self.channel = channel
+#         self.modality = channel
 
 
 
@@ -155,7 +150,7 @@ def create_ego_pose(gnss_file, index_gnss_end, yaw_refrence_frame=False):
 
     ego_poses = []
     for i, time_stamp_gnns in enumerate(timestamps_gnss[:index_gnss_end]):
-        egopose = EgoPose(translation=[x_offsets[i], y_offsets[i], 0], rotation=utils.euler_to_quaternion_yaw([0,0, ego_yaws[i]]), timestamp=time_stamp_gnns)
+        egopose = EgoPose(translation=[float(x_offsets[i]), float(y_offsets[i]), float(0)], rotation=utils.euler_to_quaternion_yaw([0,0, ego_yaws[i]]), timestamp=time_stamp_gnns)
         ego_poses.append(egopose)
 
     return ego_poses
@@ -180,7 +175,7 @@ def create_samples(scene, timestamps_gnss, timestamps_cams, calibrated_sensors, 
 
             data[cam] = sample_data.token
 
-        sample.set_data(data)
+        sample.data = data
         
         samples.append(sample)
 
@@ -238,7 +233,7 @@ if __name__ == "__main__":
     lat_lon, timestamps_gnss = extract_gnss.get_gnss_data(gnss_file)
 
 
-    # bests = extract_gnss.calculate_syncs_diffs(cams_info, timestamps_gnss)
+    bests = extract_gnss.calculate_syncs_diffs(cams_info, timestamps_gnss)
 
     data_root = "/cluster/home/terjenf/NAPLab_car/data_images"
     description="Handels -> Eglseterbru -> Nidarosdomen -> Samfundet -> Høyskoleringen"
@@ -247,13 +242,11 @@ if __name__ == "__main__":
 
     # cam_start 64, gnss end -18
 
-    index_cam_start = 64
+    index_cam_start = 52
     index_gnss_end = -18
 
     ego_poses = create_ego_pose(gnss_file, index_gnss_end, yaw_refrence_frame=500)
-
     selected_cams = list(intrinsics_map.keys())
-
     calibrated_sensor_files = utils.get_files(absoulute_files, file_format="json")
 
     timestamps_files = utils.get_files(absoulute_files, file_format="timestamps")
@@ -267,12 +260,23 @@ if __name__ == "__main__":
     cd_sensors = create_calibrated_sensors(cam_parameters, nuscnes_intrinsics)
     cam_names = [cam.split("/")[-1].split(".")[0] for cam in camera_files]
 
-
-    samples = create_samples(scene=scene, timestamps_gnss=timestamps_gnss, timestamps_cams=timestamps_cams,
+    samples, samples_data = create_samples(scene=scene, timestamps_gnss=timestamps_gnss, timestamps_cams=timestamps_cams,
      calibrated_sensors=cd_sensors, ego_poses=ego_poses, cams=cam_names, index_gnss_end=index_gnss_end, index_cam_start=index_cam_start)
 
     ego_xy_coords = extract_gnss.get_ego_position(lat_lon)
     ego_yaws = extract_gnss.compute_yaws(lat_lon)
 
+    utils.save_to_picle_file(ego_poses, naplab_tables_path, "ego_poses.pkl")
+    utils.save_to_picle_file(cd_sensors, naplab_tables_path, "calibarated_sensors.pkl")
+    utils.save_to_picle_file(samples, naplab_tables_path, "samples.pkl")
+    utils.save_to_picle_file(samples_data, naplab_tables_path, "samples_data.pkl")
+   
+    # ego_poses1 = utils.load_from_picle_file("/cluster/home/terjenf/NAPLab_car/data_tables/ego_poses.pkl")
 
-    print("Terje")
+
+    # utils.save_to_json_file(ego_poses, naplab_tables_path, "ego_poses.json")
+    # utils.save_to_json_file(cd_sensors, naplab_tables_path, "calibarated_sensors.json")
+    # utils.save_to_json_file(samples, naplab_tables_path, "samples.json")
+    # utils.save_to_json_file(samples_data, naplab_tables_path, "samples_data.json")
+
+
