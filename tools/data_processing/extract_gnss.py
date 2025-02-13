@@ -19,7 +19,7 @@ root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
 
 sys.path.append("/cluster/home/terjenf/NAPLab_car")
 
-from data.data_processing import utils
+from tools.data_processing import utils
 
 
 

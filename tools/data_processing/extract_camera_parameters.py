@@ -16,7 +16,7 @@ save_path_nuscnes_metadata = "/cluster/home/terjenf/NAPLab_car/data_nuscnes"
 version = 'v1.0-trainval'
 saved_nusce_file = 'nuscene_metadata.json'
 
-import utils
+from . import utils
 
 def get_nuscenes_cam_intrinics(): 
     from nuscenes.nuscenes import NuScenes
@@ -56,7 +56,7 @@ def get_nuscenes_cam_intrinics():
     return nuscene_info
         
 
-def read_NAP_Lab_camera_prarameters(calibrated_sesnsor_file, selected_cams): 
+def get_naplab_cams(calibrated_sesnsor_file, selected_cams=False): 
     with open(calibrated_sesnsor_file, 'r') as file:
         json_obj = json.load(file)
 
@@ -69,9 +69,10 @@ def read_NAP_Lab_camera_prarameters(calibrated_sesnsor_file, selected_cams):
             try: 
                 if 'car-mask' not in car_mask.keys():
                     continue
-
-                if car_mask['name'] not in selected_cams:
-                    continue
+                
+                if selected_cams:
+                    if car_mask['name'] not in selected_cams:
+                        continue
 
                 nominalSensor2Rig_FLU = car_mask['nominalSensor2Rig_FLU']
             
@@ -104,18 +105,9 @@ if __name__ == "__main__":
     absoulute_files = utils.get_folder(folder_name="Trip077")
 
     calibrated_sensor_file = utils.get_files(absoulute_files, file_format="json")
+    
 
-
-    intrinsics_map = {
-        'C1 front60Single',
-        'C7_R2',
-        'C7_L2',
-        'C4_rearCam',
-        'C5_L1',
-        'C5_R1',
-    }
-
-    cam_data = read_NAP_Lab_camera_prarameters(calibrated_sensor_file[0])
+    cam_data = get_naplab_cams(calibrated_sensor_file[0])
 
  
 

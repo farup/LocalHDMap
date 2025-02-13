@@ -69,13 +69,10 @@ def get_folders(path=root_folder):
     folder = [os.path.join(path,f) for f in os.listdir(path)]
     return folder
 
-
-def get_folder(folder_name="Trip077"): 
+def get_folder(root_folder, folder_name="Trip077"): 
     if not os.path.exists(folder := os.path.join(root_folder, folder_name)): 
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fodler)
-    
     absoulute_files = [os.path.join(root_folder,folder_name,  sub_folder) for sub_folder in os.listdir(folder)]
-    print(absoulute_files)
     absoulute_files.sort(key=sort_func)
 
     return absoulute_files
