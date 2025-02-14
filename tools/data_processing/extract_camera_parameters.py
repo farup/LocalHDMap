@@ -2,6 +2,7 @@ import numpy as np
 import cv2 
 import json
 import os
+import sys
 
 
 from PIL import Image
@@ -11,12 +12,15 @@ from PIL import Image
 # from shapely.geometry import Point
 
 
-root_path = "/cluster/home/terjenf/maptr_new/data/nuscenes"
+
 save_path_nuscnes_metadata = "/cluster/home/terjenf/NAPLab_car/data_nuscnes"
 version = 'v1.0-trainval'
 saved_nusce_file = 'nuscene_metadata.json'
 
-from . import utils
+sys.path.append("/cluster/home/terjenf/")
+
+from NAPLab_car.tools.data_processing import utils
+from NAPLab_car.tools.data_processing import extract_camera_intrinsics
 
 def get_nuscenes_cam_intrinics(): 
     from nuscenes.nuscenes import NuScenes
@@ -89,7 +93,10 @@ def get_naplab_cams(calibrated_sesnsor_file, selected_cams=False):
                 bw_poly = (properties['bw-poly']).split(" ")
                 float_bw = [float(num) for num in bw_poly if len(num) > 2]
 
-                cam_data[car_mask['name']] = {'roll_pitch_yaw': roll_pitch_yaw, 't':t, 'cx': cx, 'cy': cy, 'height': height, 'width': width, 'float_bw': float_bw}
+
+                fw_coeff = extract_camera_intrinsics.calculate_fw_coef(width, height, cx, cy, float_bw)
+
+                cam_data[car_mask['name']] = {'roll_pitch_yaw': roll_pitch_yaw, 't':t, 'cx': cx, 'cy': cy, 'height': height, 'width': width, 'bw_coeff': float_bw, 'fw_coeff': fw_coeff}
 
             except KeyError as e:
                 print("Error", e)
@@ -101,8 +108,9 @@ def get_naplab_cams(calibrated_sesnsor_file, selected_cams=False):
 if __name__ == "__main__": 
 
     # cam_intrinsics, image_size = get_nuscenes_cam_intrinics()
+    root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
 
-    absoulute_files = utils.get_folder(folder_name="Trip077")
+    absoulute_files = utils.get_folder(root_folder=root_folder, folder_name="Trip077")
 
     calibrated_sensor_file = utils.get_files(absoulute_files, file_format="json")
     

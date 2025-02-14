@@ -34,7 +34,7 @@ class NapLab:
         self.trip = trip
 
         self.table_names = ['calibrated_sensor',
-                            'ego_pose', 'sample', 'sample_data']
+                            'ego_pose', 'sample', 'sample_data', 'scene']
 
 
         start_time = time.time()
@@ -42,7 +42,7 @@ class NapLab:
         self.calibrated_sensor = self.__load_table__('cd_sensors')
         self.ego_pose = self.__load_table__('ego_poses')
 
-        #self.scene = self.__load_table__('scene')
+        self.scene = self.__load_table__('scenes')
         self.sample = self.__load_table__('samples')
         self.sample_data = self.__load_table__('samples_data')
 

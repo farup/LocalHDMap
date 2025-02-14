@@ -17,7 +17,7 @@ sys.path.append("/cluster/home/terjenf/NAPLab_car/tools")
 sys.path.append("/cluster/home/terjenf/NAPLab_car/tools/naplab")
 
 
-from NAPLab_car.tools.naplab_api.naplab import NapLab
+from NAPLab_car.tools.data_processing.naplab import NapLab
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Data converter arg parser')
@@ -70,9 +70,7 @@ def create_naplab_infos_map(root_path,
         #scene_record = naplab.get('scene', sample['scene_token'])
         log_record = None
         location = "Trondheim"
-    
-        scene_record = naplab.get('scene', sample['scene_token'])
-        scene_name = scene_record['scene_name']
+        scene_name = trip
      
         info = {
             'lidar_path': lidar_path,
@@ -106,13 +104,7 @@ def create_naplab_infos_map(root_path,
         'C6_L1',
         'C5_R1',]
         
-
         for cam in camera_types:
-
-
-            
-
-
             cam_token = sample['data'][cam]
             sd_rec = naplab.get('sample_data', cam_token)
             cs_record = naplab.get('calibrated_sensor', sd_rec['calibrated_sensor_token'])
@@ -130,13 +122,10 @@ def create_naplab_infos_map(root_path,
             cam_info = dict(
                 extrinsics=transform_matrix, # ego2cam
                 intrinsics=cs_record['camera_intrinsics'],
-                fw_coeff=cs_record['fw_coeff'],
-                bw_coeff=cs_record['bw_coeff'],
-                cx=cs_record['cx'],
-                cy=cs_record['cy'],
                 img_fpath=sd_rec['filename']
             )
             info['cams'][cam] = cam_info
+        
         
         info.update({
             'sample_idx': train_sample_idx,

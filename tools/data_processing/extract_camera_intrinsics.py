@@ -1,95 +1,68 @@
 
 
+
+import sys
+
+sys.path.append("/cluster/home/terjenf/")
+sys.path.append("/cluster/home/terjenf/NAPLab_car")
+
+
 from NAPLab_car.tools.data_processing import utils
-from NAPLab_car.tools.data_processing import extract_camera_parameters
+import numpy as np
 
 
-def make_image_coords(image_shape):
-    """ 
-    Generate mesh grid for plotting image plane
-    """
- 
-    X, Y = np.meshgrid(np.arange(image_shape[0],), np.arange(image_shape[1]))
 
-    x_coords = X.flatten()
-    y_coords = Y.flatten()
-
-    image_coords = np.stack((y_coords, x_coords))
-    return image_coords, X, Y 
-
-def get_cam_props(cam_v):
-    w = cam_v['width']
-    h = cam_v['height']
-    cx = cam_v['cx']
-    cy = cam_v['cy']
-    float_bw = cam_v['float_bw']
+def get_cam_props(cam_name, cam_param):
+    w = cam_parm[cam_name]['width']
+    h = cam_parm[cam_name]['height']
+    cx = cam_parm[cam_name]['cx']
+    cy = cam_parm[cam_name]['cy']
+    float_bw = cam_parm[cam_name]['float_bw']
    
     return w, h, round(cx), round(cy), float_bw
 
 
-def shift_image(x_values, y_values, cx, cy):
-    return (x_values - cx), (y_values - cy)
+def poly(r, float_bw):
+    res = np.sum([j*r**i for i, j in enumerate(float_bw)])
+    return res
 
 
 
-def calculate_rays(w, h, cx, cy, float_bw): 
-    r_d = []
-    rays = []
-    for v in range(h):
-        for u in range(w):
-            ry = v - cy
-            rx = u - cx
+def calculate_fw_coef(w, h, cx, cy, float_bw, steps=10):
 
-            r = np.sqrt(rx**2 + ry**2)
-            theta = np.sum([j*r**i for i, j in enumerate(float_bw)])
+    rx = np.arange(-cx,w-cx)[::steps]
+    ry = np.arange(-cy,h-cy)[::steps]
 
-            phi = np.arctan2(ry, rx)
-            ray = [np.sin(theta)*np.cos(phi),
-                    np.sin(theta)*np.sin(phi),
-                      np.cos(theta)]
-            
-            r_d.append(r)
-            rays.append(ray)
+    r_distances = []
+    for y in ry:
+        for x in rx:
+            r_distances.append(np.sqrt(x**2 + y**2))
 
-    return np.array(r_d), np.array(rays)
+    print(f"Number of distances (points) used to calculate: {len(r_distances)}")
+
+    thetas = [poly(r, float_bw) for r in  r_distances]
+
+    forward_degree = len(float_bw) - 1
+
+    f_coeffs = np.polyfit(thetas,r_distances , forward_degree)
 
 
-def normalize_rays(vectors):
-    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-
-    # Avoid division by zero (set zero norms to 1 to prevent NaNs)
-    norms[norms == 0] = 1
-
-    # Normalize each vector
-    normalized_vectors = vectors / norms
-
-    return normalized_vectors
-
-
-def create_cam_intrin(cam_param):
-
-    cam_intrin = {}
-
-    for cam_name, v in cam_param.items()
-        w, h, cx, cy, float_bw = get_cam_props(cam_v)
-        image_coords, X, Y  = make_image_coords(w,h)
-
-        shifted_x, shifted_y = shift_image(cx, cy)
-
-        r_d, rays = calculate_rays(w, h, cx, cy, float_bw)
-
-        norm_rays = normalize_rays(rays)
-
-        cam_intrin[cam_name] = norm_rays
-
+    f_coeffs[0] = 0
     
-    return cam_intrin
+    f_coeffs_list = [float(f_cof) for f_cof in f_coeffs]
+
+    print(f"BW: {float_bw}, FW: {f_coeffs}")
+
+    return f_coeffs_list
 
 
-if __name__ "__main__": 
 
+
+
+if __name__ == "__main__": 
+    root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
     
-    absoulute_files = utils.get_folder(folder_name="Trip077")
+    absoulute_files = utils.get_folder(root_folder=root_folder, folder_name="Trip077")
 
     calibrated_sensor_file = utils.get_files(absoulute_files, file_format="json")
 

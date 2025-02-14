@@ -2,10 +2,13 @@
 import json 
 import uuid
 from dataclasses import dataclass, field
-
+import sys
 import pickle
 
 #from nuscenes.nuscenes import NuScenes
+
+
+sys.path.append("/cluster/home/terjenf/NAPLab_car")
 
 from tools.data_processing import utils
 from tools.data_processing import extract_gnss
@@ -15,6 +18,8 @@ from tools.naplab_api.tables import Scene, Sample, SampleData, CalibratedSensor,
 
 import os 
 import numpy as np
+
+
 
 nuscenes_cam_json = "/cluster/home/terjenf/NAPLab_car/data/metadata_nuscenes/nuscene_metadata.json"
 dataroot = "/cluster/home/terjenf/NAPLab_car/data"
@@ -38,13 +43,13 @@ camera_types = [
     ]
 
 
-def create_scenes(map_token, nbr_samples, timestamps_gnss, timestamps_cams, calibrated_sensors, ego_poses, cams, index_gnss_end, index_cam_start): 
+# def create_scenes(map_token, nbr_samples, timestamps_gnss, timestamps_cams, calibrated_sensors, ego_poses, cams, index_gnss_end, index_cam_start): 
 
-    # scene, timestamps_gnss, timestamps_cams, calibrated_sensors, ego_poses, cams, index_gnss_end, index_cam_start
+#     # scene, timestamps_gnss, timestamps_cams, calibrated_sensors, ego_poses, cams, index_gnss_end, index_cam_start
 
-    for i, timestamp_gnss in enumerate(timestamps_gnss[:index_gnss_end:nbr_samples]) 
-        if i % 20:
-            scene = Scene(scene_name=f"scene_{i}", nbr_samples=(i%20 + 1) )
+#     for i, timestamp_gnss in enumerate(timestamps_gnss[:index_gnss_end:nbr_samples]):
+#         if i % 20:
+#             scene = Scene(scene_name=f"scene_{i}", nbr_samples=(i%20 + 1) )
 
    
 
@@ -55,7 +60,7 @@ def create_calibrated_sensors(cam_parameters, nuscnes_intrinsics, sensors=None):
     """
     cd_sensors = []
     for i, (k, v) in enumerate(cam_parameters.items()):
-        cd_sensor = CalibratedSensor(translation=v['t'], rotation=utils.euler_to_quaternion_yaw(v['roll_pitch_yaw']), camera_intrinsics=nuscnes_intrinsics[intrinsics_map[k]]['camera_intrinsic'])
+        cd_sensor = CalibratedSensor(translation=v['t'], rotation=utils.euler_to_quaternion_yaw(v['roll_pitch_yaw']), camera_intrinsics=nuscnes_intrinsics[intrinsics_map[k]]['camera_intrinsic'], cx=v['cx'], cy=v['cy'], fw_coeff=v['fw_coeff'], bw_coeff=v['bw_coeff'])
         cd_sensors.append(cd_sensor.__dict__)
     
     return cd_sensors
@@ -87,25 +92,33 @@ def create_ego_pose(gnss_file, index_gnss_end, yaw_refrence_frame=False):
     return ego_poses
 
 
-def generate_filenmae(scene, cam, timestamp):
-    return os.path.join(scene.dataroot, scene.scene_name, "samples", cam, f"{cam}_{timestamp}.png")
+def generate_filenmae(scene, trip, cam, timestamp):
+    return os.path.join(scene.dataroot, trip, "samples", cam, f"{cam}_{timestamp}.png")
 
-def create_samples_new(scene, timestamps_gnss, timestamps_cams, calibrated_sensors, ego_poses, cams, index_gnss_end, index_cam_start):
+def create_samples_new(trip, timestamps_gnss, timestamps_cams, calibrated_sensors, ego_poses, cams, index_gnss_end, index_cam_start):
     """
     
     """
     samples = []
+    scenes = []
     samples_data = []
+    scene_count = 0
     for i, timestamp_gnss in enumerate(timestamps_gnss[:index_gnss_end]): 
         
-        sample = Sample(scene_token=scene.token, timestamp=timestamp_gnss)
-        data = {}
+        if i % 40 == 0: 
 
+            scene = Scene(scene_name=f"scene_{scene_count}", nbr_samples=(40 if i%40 == 0 else i%40), dataroot=dataroot)
+            scenes.append(scene.__dict__)
+            scene_count += 1
+
+
+        sample = Sample(scene_token=scene.token, scene_name=scene.scene_name, timestamp=timestamp_gnss)
+        data = {}
 
         for j, (cam, timestamps_cam) in enumerate(zip(cams, timestamps_cams)):
 
    
-            sample_data = SampleData(sample_token=sample.token, calibrated_sensor_token=calibrated_sensors[j]['token'],  ego_pose_token=ego_poses[i]['token'], timestamp=int(timestamps_cam[i]), filename=generate_filenmae(scene, cam, timestamps_cam[i]), next_idx=None, prev_idx=None)
+            sample_data = SampleData(sample_token=sample.token, calibrated_sensor_token=calibrated_sensors[j]['token'],  ego_pose_token=ego_poses[i]['token'], timestamp=int(timestamps_cam[i]), filename=generate_filenmae(scene, trip, cam, timestamps_cam[i]), next_idx=None, prev_idx=None)
             samples_data.append(sample_data.__dict__)
 
             data[cam] = sample_data.token
@@ -114,7 +127,7 @@ def create_samples_new(scene, timestamps_gnss, timestamps_cams, calibrated_senso
         
         samples.append(sample.__dict__)
 
-    return samples, samples_data
+    return samples, samples_data, scenes
 
 
 def create_samples(scene, timestamps_gnss, timestamps_cams, calibrated_sensors, ego_poses, cams, index_gnss_end, index_cam_start):
@@ -143,9 +156,9 @@ def create_samples(scene, timestamps_gnss, timestamps_cams, calibrated_sensors, 
     return samples, samples_data
 
 
-def save_tables_json(scene, table, filename):
+def save_tables_json(dataroot, folder_name, table, filename):
 
-    new_folder = os.path.join(scene.dataroot, scene.scene_name, "tables")
+    new_folder = os.path.join(dataroot, folder_name, "tables")
 
     if not os.path.exists(new_folder):
         os.makedirs(new_folder)
@@ -155,18 +168,6 @@ def save_tables_json(scene, table, filename):
         json.dump(table, f, indent=4)
         print("Saved to", new_file)
 
-
-def save_tables_pkl(scene, table, filename):
-
-    new_folder = os.path.join(scene.dataroot, scene.scene_name, "tables")
-
-    if not os.path.exists(new_folder):
-        os.makedirs(new_folder)
-
-    new_file = os.path.join(new_folder, filename)
-    with open(new_file, 'wb') as f: 
-        pickle.dump(table, f)
-        print("Saved to", new_file)
 
 
 
@@ -215,8 +216,10 @@ if __name__ == "__main__":
     print("hei")
 
     folder_name = "Trip077"
+    root_folder = "/cluster/home/terjenf/MapTR/NAP_raw_data/"
+    
 
-    absoulute_files = utils.get_folder(folder_name=folder_name)
+    absoulute_files = utils.get_folder(root_folder=root_folder, folder_name=folder_name)
     camera_files = utils.get_files(absoulute_files, file_format="h264")  
     timestamps_files = utils.get_files(absoulute_files, file_format="timestamps")
 
@@ -240,8 +243,6 @@ if __name__ == "__main__":
 
     description="Handels -> Eglseterbru -> Nidarosdomen -> Samfundet -> Høyskoleringen"
 
-    scene = Scene(scene_name=folder_name, description=description, dataroot=dataroot)
-
     # cam_start 64, gnss end -18
 
     index_cam_start = 52
@@ -253,7 +254,7 @@ if __name__ == "__main__":
 
     timestamps_files = utils.get_files(absoulute_files, file_format="timestamps")
 
-    cam_parameters = extract_camera_parameters.read_NAP_Lab_camera_prarameters(calibrated_sensor_files[0],selected_cams)
+    cam_parameters = extract_camera_parameters.get_naplab_cams(calibrated_sensor_files[0],selected_cams)
 
     timestamps_cams = process_timestamps(cams_info, index_cam_start, selected_cams)
 
@@ -262,19 +263,22 @@ if __name__ == "__main__":
     cd_sensors = create_calibrated_sensors(cam_parameters, nuscnes_intrinsics)
     cam_names = [cam.split("/")[-1].split(".")[0] for cam in camera_files]
 
-    samples, samples_data = create_samples(scene=scene, timestamps_gnss=timestamps_gnss, timestamps_cams=timestamps_cams,
+    samples, samples_data, scenes = create_samples_new(trip=folder_name, timestamps_gnss=timestamps_gnss, timestamps_cams=timestamps_cams,
      calibrated_sensors=cd_sensors, ego_poses=ego_poses, cams=cam_names, index_gnss_end=index_gnss_end, index_cam_start=index_cam_start)
 
     ego_xy_coords = extract_gnss.get_ego_position(lat_lon)
     ego_yaws = extract_gnss.compute_yaws(lat_lon)
 
-    
-    save_tables_json(scene, ego_poses, "ego_poses.json")
-    save_tables_json(scene, samples, "samples.json")
-    save_tables_json(scene, samples_data, "samples_data.json")
-    save_tables_json(scene, cd_sensors, "cd_sensors.json")
 
-   
+    data_root = "/cluster/home/terjenf/NAPLab_car/data"
+    
+    save_tables_json(data_root,folder_name,  scenes, "scenes.json")
+    save_tables_json(data_root,folder_name,  samples, "samples.json")
+    save_tables_json(data_root,folder_name,  samples_data, "samples_data.json")
+    save_tables_json(data_root,folder_name,  cd_sensors, "cd_sensors.json")
+    save_tables_json(data_root,folder_name,  ego_poses, "ego_poses.json")
+  
+ 
     # cd1 = utils.load_from_picle_file("/cluster/home/terjenf/NAPLab_car/data/Trip077/tables/cd_sensors.pkl")
     # eg1 = utils.load_from_picle_file("/cluster/home/terjenf/NAPLab_car/data/Trip077/tables/ego_poses.pkl")
     # sa1 = utils.load_from_picle_file("/cluster/home/terjenf/NAPLab_car/data/Trip077/tables/samples.pkl")

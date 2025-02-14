@@ -25,10 +25,10 @@ class Map:
 class Scene: 
     scene_name: str
     nbr_samples: int
-    first_sample_token: str 
-    last_sample_token: str
     dataroot: str
-    map_token: str
+    first_sample_token: str = field(default="")
+    last_sample_token: str = field(default="")
+    map_token: str = field(default="")
     token: str = field(init=False)  # Excluded from __init__, set later
 
     def __post_init__(self):
@@ -37,6 +37,7 @@ class Scene:
 @dataclass      
 class Sample: 
     scene_token: str
+    scene_name: str
     timestamp: int
     data: any = field(default=None) # default to None, can be set later
     next_idx: any = field(default=None)
@@ -71,6 +72,10 @@ class CalibratedSensor:
     translation: list
     rotation: list
     camera_intrinsics: list
+    fw_coeff: list 
+    bw_coeff: list
+    cx: int
+    cy: int 
 
     def __post_init__(self):
         self.token = generate_token()  # Generate token after initialization
@@ -85,6 +90,8 @@ class EgoPose:
     translation: list 
     rotation: list
     timestamp: int
+    lat: any= field(default=None)
+    lon: any = field(default=None)
 
     def __post_init__(self):
         self.token = generate_token()  # Generate token after initialization
